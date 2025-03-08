@@ -23,8 +23,6 @@ def extract_transaction_data(json_data):
 
         return txn
     
-
-    
     return [extract_txn(txn) for txn in transactions]
 
 def get_and_extract_transaction_data(api_url, bearer_token, budget_id, since_date):
@@ -46,24 +44,56 @@ def get_and_extract_transaction_data(api_url, bearer_token, budget_id, since_dat
         print(f"An unexpected error occurred: {e}")
         return []
 
-
-
 # Example usage:
 ynab_api = "https://api.ynab.com/v1"
 ynab_token = os.environ['YNAB_TOKEN']
 
 budget_id = sys.argv[1]
 since_date = sys.argv[2]
-# Example of reading the token from a file (recommended):
-with open(".token", "r") as f:
-	bearer_token = f.read().strip()
 
-extracted_data = get_and_extract_transaction_data(ynab_api, bearer_token, budget_id, since_date)
+transactions = get_and_extract_transaction_data(ynab_api, ynab_token, budget_id, since_date)
 
-# Print CSV header
+# Split transactions into approved and unapproved lists
+approved = []
+unapproved = []
 
-for item in extracted_data:
+for txn in transactions:
+    is_approved = txn.pop('approved')  # Remove and get the approved field
+    if is_approved:
+        approved.append(txn)
+    else:
+        unapproved.append(txn)
+
+for item in approved:
     try:
-        print(json.dumps(item))
+        # Create a copy of the item without id and category_name
+        details = item.copy()
+        details.pop('id')
+        details.pop('category_name')
+        
+        txn_output = {
+            'id': item['id'],
+            'details': details,
+            'category_name': item['category_name']
+        }
+        print(json.dumps(txn_output))
     except BrokenPipeError:
         pass
+
+print("Unapproved:")
+
+for item in unapproved:
+    try:
+        # Create a copy of the item without id
+        details = item.copy()
+        details.pop('id')
+        details.pop('category_name')
+    
+        txn_output = {
+            'id': item['id'],
+            'details': details
+        }
+        print(json.dumps(txn_output))
+    except BrokenPipeError:
+        pass
+
